@@ -1,0 +1,76 @@
+#analyze all files in "/data_collection", find cameras that repeat consistently throughout all files and record them
+
+import json
+import os
+from collections import defaultdict
+
+DATA_DIR = "data_collection"
+
+def find_consistent_offline_cameras(data_dir):
+    #get all report files
+    all_files = [f for f in os.listdir(data_dir) if f.startswith("inactive_cameras_") and f.endswith(".json")]
+
+    #if no files return empty list
+    if not all_files:
+        print("No daily reports in directory")
+        return [] 
+    
+    total_files = len(all_files) #total number of files to process
+    camera_appearances = defaultdict(int)
+    #defaultdict automatically creates missing keys and initializes them to 0 (int)
+    #this is better because a normal dictionary would throw a missing key error instead
+
+    #load each file json into python object
+    for filename in all_files:
+        with open(os.path.join(data_dir, filename), 'r') as f: #open each file in read mode with datadir + filename
+            data = json.load(f)
+            offline_cameras = data.get('offline_cameras', []) #get list of offline cameras from a file
+
+            #get list of camera names from this file
+            names = {cam['name'] for cam in offline_cameras}
+
+            #update count for every camera in this report
+            for name in names:
+                camera_appearances[name] += 1
+
+    #find cameras that appear in all processed files
+    #if count of camera appearances matches the number of files, then the camera is consistently offline
+    consistent_cameras = [
+        #return name for each matching condition
+        name for name, count in camera_appearances.items() if count == total_files
+    ]
+
+    return sorted(consistent_cameras), total_files
+
+
+if __name__ == "__main__":
+    
+    #call function
+    consistent_cameras, total_days = find_consistent_offline_cameras(DATA_DIR)
+
+    #print header
+    print("\nConsistently offline cameras report")
+    print("-" * 60)
+
+    #print summary
+    #(f prefix allows evaluation of variables in {})
+    print(f"Total daily reports processed: {total_days}")
+    print(f"Cameras offline every day: {len(consistent_cameras)}")
+
+    #print list of cameras
+    print("\nCameras always offline:")
+    for cam in consistent_cameras:
+        print(f"- {cam}")
+
+    #save in a text file, same as terminal output
+    with open("always_offline.txt", "w") as f:
+        f.write("\nConsistently offline cameras report\n")
+        f.write("-" * 60)
+        f.write(f"\nTotal daily reports processed: {total_days}")
+        f.write(f"\nCameras offline every day: {len(consistent_cameras)}")
+
+        f.write("\n\nCameras always offline:\n")
+
+        f.write("\n".join(f"- {cam}" for cam in consistent_cameras))
+
+    print("\nResults saved in a text file.")
